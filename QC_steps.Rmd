@@ -1,0 +1,128 @@
+---
+title: "Metabolite QC Analysis"
+author: "Brian Yandell"
+date: "2023-12-08"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+source("R/qc_steps.R")
+```
+
+# QC steps and normalization (Batch Correction)
+
+Need to correct the two modes (`HC_Neg` and `RP_Pos`) separately.
+`HC_Neg` mode targeted data of founder samples used as example
+to showed how Qiushi did batch correction manually.
+
+```{r}
+dirpath <- 'data/QC Batch Correction/#Founder_Plasma_Raw_Data/'
+```
+
+## Batch Correction on HC_Neg Targeted Data
+
+```{r}
+HCnegfile <- "Founder_Plasma_All_Timepoints_HC_Neg_targeted_Raw.csv"
+```
+
+1. Transpose Data and Extract Info from Sample Names
+
+```{r}
+raw_HCneg <- read_raw_metab(dirpath, HCnegfile)
+```
+
+2. Only pick up QC runs of every plate, and calculate correction factors (CF) for each metabolite.
+    + Average of QC per plate/Average of QC all plate.
+
+```{r}
+qc_HCneg <- calc_cf(raw_HCneg)
+```
+
+3. If metabolites weren’t measured in (**all?**) QC samples, but were measured in study samples: use the CF average of all metabolites in one plate as the CF of the missing metabolites on that plate.
+
+```{r}
+qc_HCneg <- replace_missing_ave_cf(qc_HCneg)
+```
+
+4. Correct the Peak Area using CF for each metabolite 
+
+```{r}
+rescale_HCneg <- correct_raw_cf(raw_HCneg, qc_HCneg)
+```
+
+Now redo as one step:
+
+```{r}
+rescale_HCneg <- qc_steps(dirpath, HCnegfile)
+```
+
+## Batch Correction on RP_Pos Targeted Data
+
+Exclude every 1st QC run on plate for CF calculation of `RP_Pos` data as it historically was always an outlier.
+
+```{r}
+rescale_RPpos <- qc_steps(dirpath,
+                    "Founder_Plasma_All_Timepoints_RP_Pos_targeted_Raw.csv",
+                          exclude_first = TRUE)
+```
+
+### Notes for batch correction in `RP_Pos` mode 
+ 
+- For untargeted data, if any metabolite has peak area <1000 or correction factor is 0 in most QC samples, use average of CF of all metabolites as their CF no matter if they can be measured in QC samples or not.
+
+### **Extra Notes for Founder Samples Runs**
+
+**This was not attempted yet.**
+
+- There were two runs for `B6-1_120min` time point in both modes. Should use average of the two injections as the final data for this sample for both targeted and untargeted.
+  + `run11-27Jul21_B6-1_20210106_120min_1_HC_Neg/RP_Pos`
+  + `run108-27Jul21_B6-1_20210106_120min_2_HC_Neg/RP_Pos`
+- There was an accident interruption when running `batch 1 plate 7 in HC_Neg` mode; this plate had two run dates:
+  + 6-Aug-21
+  + 7-Aug-21
+
+## Batch Correction on Untargeted Data
+
+For untargeted curation, we usually assign up to the five most intense peaks for each metabolite in each mode based on their `m/z`. One metabolite may have multiple entries which can be distinguished by the different retention times. We need to do batch correction on each entry separately. 
+This is done in routine `calc_cf()` with grouping by `compound` and `medRt`.
+
+1. Transpose Data and Extract Info from Sample Names, should use `compound name + retention time` as the compound header to distinguish different entries of the same metabolite.
+2. Same as targeted, only pick QC runs in each plate and calculate CF  
+3. Correct the Peak Area using corresponding CF for each metabolite 
+
+```{r}
+rescale_HCnegu <- qc_steps(dirpath, "Founder_Plasma_All_Timepoints_HC_Neg_untargeted_Raw.csv")
+rescale_RPposu <- qc_steps(dirpath, "Founder_Plasma_All_Timepoints_RP_pos_untargeted_Raw.csv",
+                           exclude_first = TRUE)
+```
+
+## Data Normalization and Merge
+
+Annotation
+
+- After batch correction, need to run a notebook on `Elucidata Polly` to normalize and merge targeted and untargeted data.
+- Data normalization: After this step, all values are negative. Do normalization in each mode, targeted and untargeted separately. 
+  + normalize each metabolite by the sum of all metabolites in a sample per mode
+  + log2 transformation
+- Merge targeted and untargeted data to remove replicates:
+  + For metabolites which both targeted and untargeted curation detected, only retain the targeted data since it’s more reliable. 
+  + For metabolites which have multiple entries, only retain the largest normalized data.
+- The final data will be only one entry for each metabolite
+  + all-capitalized metabolites are from targeted curation
+  + non-capitalized metabolites are from untargeted curation
+
+1. Need to transpose corrected data into the format that notebook requires (the same format as original output file from `El-maven`)
+    + **Can’t add or delete columns since the notebook recognizes data by column numbers.**
+    + (This requires some sort of left_join to get back to original order?) 
+    + (**Does it require rows to be in same order, or just columns?**)
+    + Delete all QC runs.
+2. Things to do before running notebook:  
+    + Calculate average of the two samples `run11-27Jul21_B6-1_20210106_120min_1_HC_Neg/RP_Pos` and `run108-27Jul21_B6-1_20210106_120min_2_HC_Neg/RP_Pos` as the final data for this time point in both targeted and untargeted data.
+
+## Targeted RP_Pos
+
+Need to be clear what it means to be "first run QC".

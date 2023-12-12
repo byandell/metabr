@@ -1,0 +1,209 @@
+---
+title: "Metabolite QC Analysis"
+author: "Brian Yandell"
+date: "2023-12-08"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```
+From: Sun, Qiushi <qiushi.sun@yale.edu>
+Date: Monday, November 27, 2023 at 2:02 PM
+To: Brian Yandell <brian.yandell@wisc.edu>, Kibbey, Richard <richard.kibbey@yale.edu>, Cardone, Rebecca <rebecca.cardone@yale.edu>
+Subject: Re: Checking in after my visit
+
+I had finished writing down the step-by-step instructions for the following two bottlenecks:
+
+- flux data from mass spec to elmaven on Yale cluster
+- QC steps and normalization (QC Batch Correction)
+
+The examples of raw data and batch corrected data were also ready to share. However, I had issues with our metabolomics notebook to normalize and merge targeted and untargeted data, which Mano is working on fixing it. She said she would have it done this week. I can share all other files I've prepared with you today. And once I get the normalized data, I will update you.
+ 
+About "quality score vs deviation of Rt from theory", Elucidata is still working on developing a notebook to do the calculation. I should get more information on this after our Wednesday meeting with Elucidata. 
+ 
+In addition, Elucidata needs more clarification on how we want to visualize metabolites and enzymes in pathways. I think it's better to discuss this in Wed bioinformatics meeting when you, Mark and Alan are all present. 
+
+From: Brian Yandell <brian.yandell@wisc.edu>
+Sent: Monday, November 27, 2023 01:20 PM
+To: Kibbey, Richard <richard.kibbey@yale.edu>; Cardone, Rebecca <rebecca.cardone@yale.edu>; Sun, Qiushi <qiushi.sun@yale.edu>
+Subject: Checking in after my visit
+I am just checking in after my visit. Hope you are all well. I had a good visit to Bar Harbor, but I won’t bore you with the details here.
+ 
+I believe we identified mass spec pipeline bottlenecks related to Qiushi’s excellent work. I wonder how we might move forward on these. Here are my notes:
+
+- 3 bottlenecks
+  + flux data from mass spec to elmaven on Yale cluster
+  + QC steps and normalization
+  + peak identification (mz, Rt, AUC)
+- prioritization of peaks to recheck
+  + quality score vs deviation of Rt from theory, etc.
+  + run through then post check based on interest, significance
+  + check by plate, GTT minute, other grouping
+
+It would help me if you could write this up into a short document (1-2 pages) so that we can decide how to move forward. Can we plan to discuss next steps with these next Thu 7 Dec when we have our UW-Yale checkin?
+```
+
+# flux data from mass spec to elmaven on Yale cluster
+
+This is a step-by-step process that is time consuming but not complicated. It relies on a few other tools. Need a (drag-and-drop?) app to automate.
+
+# QC steps and normalization (Batch Correction)
+
+Need to correct the two modes (`HC_Neg` and `RP_Pos`) separately.
+`HC_Neg` mode targeted data of founder samples used as example
+to showed how Qiushi did batch correction manually.
+
+## Batch Correction on Targeted Data
+
+1. Transpose Data and Extract Info from Sample Names
+2. Only pick up QC runs of every plate, and calculate correction factors (CF) for each metabolite.
+    + Average of QC per plate/Average of QC all plate.
+3. If metabolites weren’t measured in QC samples, but were measured in study samples: use the CF average of all metabolites in one plate as the CF of the missing metabolites on that plate.
+4. Correct the Peak Area using CF for each metabolite 
+
+### Notes for batch correction in `RP_Pos` mode 
+
+- Exclude every 1st QC run on plate for CF calculation of `RP_Pos` data as it historically was always an outlier.
+- Some metabolites were not measured in QC samples and need to use average CF of all the other metabolites as their CF per plate:
+  + ACETOACETATE, URACIL, SUCCINATE, PURINE, HYPOXANTHINE, 4-ACETAMIDOBUTANOATE, AMINOHYDROXYBENZOATE, DOPAMINE, OROTATE, SALSOLINOL, 3,4 DIHYDROXYMANDELATE, 3-METHOXYTYROSINE, DEOXYURIDINE, DEOXYADENOSINE, INOSINE, GUANOSINE, DEOXYADENOSINE MONOPHOSPHATE, THYROTROPIN RELEASING HORMONE, S-ADENOSYLHOMOCYSTEINE (1)   
+- For untargeted data, if any metabolite has peak area <1000 or correction factor is 0 in most QC samples, use average of CF of all metabolites as their CF no matter if they can be measured in QC samples or not.
+
+### Extra Notes for Founder Samples Runs
+
+- There were two runs for `B6-1_120min` time point in both modes. Should use average of the two injections as the final data for this sample for both targeted and untargeted.
+  + `run11-27Jul21_B6-1_20210106_120min_1_HC_Neg/RP_Pos`
+  + `run108-27Jul21_B6-1_20210106_120min_2_HC_Neg/RP_Pos`
+- There was an accident interruption when running `batch 1 plate 7 in HC_Neg` mode; this plate had two run dates:
+  + 6-Aug-21
+  + 7-Aug-21
+
+## Batch Correction on Untargeted Data
+
+### Annotation
+
+For untargeted curation, we usually assign up to the five most intense peaks for each metabolite in each mode based on their `m/z`. One metabolite may have multiple entries which can be distinguished by the different retention times. We need to do batch correction on each entry separately. 
+
+### QC Steps for Untargeted Data
+
+1. Transpose Data and Extract Info from Sample Names, should use `compound name + retention time` as the compound header to distinguish different entries of the same metabolite.
+2. Same as targeted, only pick QC runs in each plate and calculate CF  
+3. Correct the Peak Area using corresponding CF for each metabolite 
+
+### Data Normalization and Merge
+
+Annotation
+
+- After batch correction, need to run a notebook on `Elucidata Polly` to normalize and merge targeted and untargeted data.
+- Data normalization: After this step, all values are negative. Do normalization in each mode, targeted and untargeted separately. 
+  + normalize each metabolite by the sum of all metabolites in a sample per mode
+  + log2 transformation
+- Merge targeted and untargeted data to remove replicates:
+  + For metabolites which both targeted and untargeted curation detected, only retain the targeted data since it’s more reliable. 
+  + For metabolites which have multiple entries, only retain the largest normalized data.
+- The final data will be only one entry for each metabolite
+  + all-capitalized metabolites are from targeted curation
+  + non-capitalized metabolites are from untargeted curation
+
+1. Need to transpose corrected data into the format that notebook requires (the same format as original output file from `El-maven`)
+    + Can’t add or delete columns since the notebook recognizes data by column numbers. 
+    + Delete all QC runs.
+2. Things to do before running notebook:  
+    + Calculate average of the two samples `run11-27Jul21_B6-1_20210106_120min_1_HC_Neg/RP_Pos` and `run108-27Jul21_B6-1_20210106_120min_2_HC_Neg/RP_Pos` as the final data for this time point in both targeted and untargeted data.
+
+
+
+# QC Analysis with R Script
+
+```{r}
+dirpath <- 'data/QC Batch Correction/#Founder_Plasma_Raw_Data/'
+```
+
+## Targeted HC_Neg
+
+1. Transpose Data and Extract Info from Sample Names
+
+```{r}
+HCneg_t <- 
+  # Data are in sheet 1 starting on line 1.
+  readr::read_csv(file.path(dirpath, "Founder_Plasma_All_Timepoints_HC_Neg_targeted_Raw.csv")) |>
+    
+  # Pivot traits, which begin after `parent` column.
+  tidyr::pivot_longer(-(label:parent), names_to = "mouse_id", values_to = "value") |>
+  dplyr::mutate(run = stringr::str_replace(mouse_id, "^run([0-9]+)-.*", "\\1"),
+                rundate = stringr::str_replace(mouse_id, "^run[0-9]+-([0-9A-Za-z]+)_.*", "\\1")) 
+```
+
+2. Only pick up QC runs of every plate, and calculate correction factors (CF) for each metabolite.
+    + Average of QC per plate/Average of QC all plate.
+
+```{r}
+HCneg_t_qc <- HCneg_t |>
+  dplyr::filter(stringr::str_detect(mouse_id, "_QC_")) |>
+  dplyr::group_by(rundate, compound) |>
+  dplyr::summarize(value = mean(value, na.rm = TRUE), .groups = "drop") |>
+  dplyr::ungroup()
+```
+
+```{r}
+HCneg_t_qc <- 
+  # Join data with `compound` averages over `rundates`.
+  dplyr::left_join(
+    HCneg_t_qc,
+    
+    # average across `rundate` by compound.
+    HCneg_t_qc |>
+      dplyr::group_by(compound) |>
+      dplyr::summarize(value = mean(value, na.rm = TRUE), .groups = "drop") |>
+      dplyr::ungroup(),
+  by = "compound", suffix = c("", "_ave")) |>
+  
+  # Divide `value` by `value_ave` (or make NA if `value_ave` is missing).
+  dplyr::mutate(value = ifelse(value_ave != 0 & !is.na(value_ave),
+                               value / value_ave, NA)) |>
+  dplyr::select(-value_ave)
+```
+
+3. If metabolites weren’t measured in QC samples, but were measured in study samples: use the CF average of all metabolites in one plate as the CF of the missing metabolites on that plate.
+
+```{r}
+HCneg_t_qc_date <- HCneg_t_qc |>
+  # Filter out `NA` and `0` values.
+  dplyr::filter(!is.na(value), value != 0) |>
+  dplyr::group_by(rundate) |>
+  dplyr::summarize(value = mean(value), .groups = "drop") |>
+  dplyr::ungroup()
+```
+
+```{r}
+# Bads are compounds with missing `value` or `value` = 0.
+(bads <- HCneg_t_qc |>
+  dplyr::filter(is.na(value) | value == 0) |>
+  dplyr::count(compound))
+```
+
+```{r}
+HCneg_t_qc <- 
+  # Join `rundata` averages to QC.
+  dplyr::left_join(HCneg_t_qc, HCneg_t_qc_date, by = "rundate", suffix = c("", "_ave")) |>
+  # If bad `compound`, replace `value` by `value_ave`
+  dplyr::mutate(value = ifelse(compound %in% bads$compound, value_ave, value)) |>
+  dplyr::select(-value_ave)
+```
+
+4. Correct the Peak Area using CF for each metabolite 
+
+```{r}
+HCneg_t <-
+  dplyr::left_join(HCneg_t, HCneg_t_qc, by = c("rundate", "compound"), suffix = c("", "_cf")) |>
+  # Divide `value` by `value_qc` (or make NA if `value_ave` is missing, which should not happen).
+  dplyr::mutate(value = ifelse(value_cf != 0 & !is.na(value_cf),
+                               value / value_cf, NA)) |>
+  dplyr::select(-value_cf)
+```
+
+## Targeted RP_Pos
+
+Need to be clear what it means to be "first run QC".

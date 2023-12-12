@@ -1,0 +1,93 @@
+---
+title: "kegg"
+author: "Brian Yandell"
+date: "2023-11-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r eval = FALSE}
+if (!require("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+BiocManager::install("GO.db")
+BiocManager::install("EnrichmentBrowser")
+BiocManager::install("OmnipathR")
+```
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(readr)
+```
+
+# KEGG Pathways via Bioconductor
+
+https://www.uniprot.org/uniprotkb?query=(database:MGI)
+
+https://github.com/saezlab/OmnipathR
+https://r.omnipathdb.org/reference/kegg_pathways_download.html
+https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7852222/
+
+https://support.bioconductor.org/p/107927/
+https://rdrr.io/bioc/EnrichmentBrowser/man/downloadPathways.html
+https://www.r-bloggers.com/2020/11/converting-xml-data-to-r-dataframes-with-xmlconvert/
+https://rpubs.com/jsmanij/131030
+https://github.com/jsugarelli/xmlconvert/
+
+https://www.google.com/search?q=kegg+gene+metabolite+mus+download+bioconductor&sca_esv=578407962&sxsrf=AM9HkKm13C6xHh4ytOHO5txMJXEaZSxclQ%3A1698826289701&ei=MQhCZc26KrSGptQP0-eCuAs&oq=kegg+gene+metabolite+mus+download+biocond&gs_lp=Egxnd3Mtd2l6LXNlcnAiKWtlZ2cgZ2VuZSBtZXRhYm9saXRlIG11cyBkb3dubG9hZCBiaW9jb25kKgIIADIFECEYoAEyBRAhGKABSKxcUKYWWMQocAF4AZABAJgB8QKgAY0MqgEHMS40LjIuMbgBAcgBAPgBAcICChAAGEcY1gQYsAPCAgUQIRirAuIDBBgAIEGIBgGQBgg&sclient=gws-wiz-serp
+
+https://www.gsea-msigdb.org/gsea/msigdb/index.jsp 
+https://docs.gsea-msigdb.org/#MSigDB/MSigDB_SQLite_Database/
+
+genome scale metabolic models (http://bigg.ucsd.edu/data_access) have all the information you need regarding the Gene-Protein-Reaction associations. Once you have the gene id, getting the KO with eggNOG shoudl not be a problem.
+http://bigg.ucsd.edu/data_access
+
+```{r}
+if(!file.exists(filename <- "kegg_pw.rds")) {
+  kegg_pw <- OmnipathR::kegg_pathways_download(simplify = TRUE)
+  saveRDS(kegg_pw, filename)
+} else {
+  kegg_pw <- readRDS(filename)
+}
+kegg_pw
+```
+
+```{r}
+hom_mus <- readr::read_tsv("HOM_MouseHumanSequence.rpt.txt")
+```
+
+```{r}
+mgi_prot <- readr::read_tsv("uniprotkb_database_MGI_2023_11_01.tsv.gz")
+```
+
+```{r eval=FALSE}
+tmp <- EnrichmentBrowser::downloadPathways("mmu")
+```
+
+# WGCNA Modules
+
+See [Elucidata Ask](https://docs.google.com/document/d/1zGaEKaHedmzHc4YgHyT-c6XK_kosV01ypM3Mvf2_hwA).
+
+```
+From: MARK P KELLER <mark.keller@wisc.edu>
+Date: Thursday, November 2, 2023 at 12:14 PM
+To: Dick Kibbey (richard.kibbey@yale.edu) <richard.kibbey@yale.edu>
+Cc: Sun, Qiushi <qiushi.sun@yale.edu>, Cardone, Rebecca <rebecca.cardone@yale.edu>, Kelly Mitok <mitok@wisc.edu>, Charles Ikechukwu Opara <copara@wisc.edu>, ALAN D ATTIE <adattie@wisc.edu>, Brian Yandell <brian.yandell@wisc.edu>
+Subject: WGCNA modules with mixed traits
+```
+
+Great discussion! I’m eager to see how we can integrate the mixed-trait modules into your metabolic pathway tool to visualize the relationships between transcripts and other traits, including metabolites and lipids. Some modules have one type of trait (e.g., transcript only, or lipid only), however, many have multiple traits, like I briefly showed at the end of our meeting. 
+ 
+To get the data into your hands, the following files are attached here:
+
+1.	An excel worksheet listing the genes, lipids, and metabolites I combined to yield 142 modules. Module memberships and their MEs are included in the final two tabs. 
+2.	A PDF slide deck of 20 mixed modules that I thought were particularly interesting. For each module, I show the pattern of trait abundance across the mice (sex, strain, and diet), the ANOVA highlight the main and secondary effects (e.g., diet, strain, strain*diet, etc.), and the listing of what traits were included in the module. 
+3.	Another PDF slide deck with the slides I used during my recent talk at Will and Scott’s lab at SLC. Slides 3 and 4 show a few of the HexCer lipids, and their “enrichments” computed for the incorporation of 13C-glucose. Note only was the labeling efficiency different among these species, the influence of strain, sex, and diet was distinct, which I found interesting. 
+4.	An excel sheet showing the ANOVA results for all modules. This is useful to quickly identify which modules showed the greatest influence of diet, or strain, or some various combinations, e.g., strain*diet. 
+ 
+I’m happy to schedule another call to go over this data, describing anything that is not clear. I can also recompute modules if you’d prefer to focus on RNA-metabolite relationships without the influence of the lipids. We’re currently triaging the list of the 20 mixed modules listed in that deck to see which may be suitable for experimental validation; e.g., the TG-enriched module with G0S2, the Ceramide-enriched module with Enpp2, and others. Getting your metabolite lens on these would definitely help nominate others. 
+

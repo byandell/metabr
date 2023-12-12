@@ -1,0 +1,518 @@
+---
+title: "ElMaven"
+author: "Brian Yandell"
+date: "2023-10-31"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      fig.width = 7,
+                      fit.heigth = 9)
+```
+
+```{r}
+library(dplyr)
+library(readr)
+library(tidyr)
+library(ggplot2)
+library(purrr)
+library(stringr)
+```
+
+# El Maven One Mouse over GTT Time
+
+How do we find indicator of quality.
+
+https://elmaven.readthedocs.io/en/documentation-website/IntroductiontoElMAVENUI.html#peak-table
+
+## One peak only
+
+```{r}
+dir("data/data1")
+```
+
+```{r message = FALSE}
+elmaven1 <- dir("data/data1") %>%
+  set_names() %>%
+  map(function(x) {
+    out <- read_csv(file.path("data/data1", x))
+    runs <- grep("run", names(out))
+    if(length(runs) == 1) {
+      out$label <- last(names(out))
+      out$AUC <- out[[runs]]
+      out$combined <- FALSE
+    } else {
+      out$label <- last(names(out))
+      out$AUC <- NA
+      out$combined <- TRUE
+    }
+    out[-runs]  
+    }) %>%
+  bind_rows() %>%
+  mutate(
+    minute = 
+      as.numeric(str_replace(label, "run.*_([0-9]+)min.*", "\\1")),
+    posneg = ifelse(grepl("_HC_", label), "HC", "RP"),
+    mouse = str_remove(str_remove(label, "_20.*$"), "^.*_"),
+    label = ifelse(combined, "combined", label)) %>%
+  select(-combined)
+```
+
+```{r warning = FALSE}
+ggplot(elmaven1 %>%
+         filter(label != "combined") %>%
+         arrange(ppmDiff)) +
+  aes(AUC, expectedRtDiff, col = ppmDiff)+
+  geom_smooth(se = FALSE, method = "lm", col = "red", size = 2,
+              formula = "y ~ x") +
+  geom_point(size = 2, alpha = 0.25) +
+  scale_y_sqrt() +
+  scale_x_log10() +
+  facet_grid(posneg~minute) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+```
+
+```{r warning = FALSE}
+ggplot(elmaven1 %>%
+         filter(label != "combined") %>%
+         arrange(ppmDiff)) +
+  aes(AUC, medRt + expectedRtDiff, col = ppmDiff)+
+  geom_smooth(se = FALSE, method = "lm", col = "red", size = 2,
+              formula = "y ~ x") +
+  geom_point(size = 2, alpha = 0.25) +
+  scale_y_log10() +
+  scale_x_log10() +
+  facet_grid(posneg~minute) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+```
+
+```{r warning = FALSE}
+ggplot(elmaven1 %>%
+         filter(label != "combined") %>%
+         arrange(expectedRtDiff)) +
+  aes(AUC, ppmDiff, col = expectedRtDiff)+
+  geom_smooth(se = FALSE, method = "lm", col = "red", size = 2,
+              formula = "y ~ x") +
+  geom_point(size = 2, alpha = 0.25) +
+  scale_x_log10() +
+  facet_grid(posneg~minute)  +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+```
+
+
+```{r warning = FALSE}
+ggplot(elmaven1 %>%
+         filter(label != "combined") %>%
+         arrange(expectedRtDiff)) +
+  aes(AUC, medMz+ ppmDiff, col = expectedRtDiff)+
+  geom_smooth(se = FALSE, method = "lm", col = "red", size = 2,
+              formula = "y ~ x") +
+  geom_point(size = 2, alpha = 0.25) +
+  scale_y_log10()  +
+  scale_x_log10() +
+  facet_grid(posneg~minute)  +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+```
+
+```{r warning = FALSE}
+ggplot(elmaven1 %>%
+         filter(label != "combined") %>%
+         arrange(desc(maxQuality))) +
+  aes(AUC, medMz+ ppmDiff, col = maxQuality)+
+  geom_smooth(se = FALSE, method = "lm", col = "red", size = 2,
+              formula = "y ~ x") +
+  geom_point(size = 2, alpha = 0.25) +
+  scale_y_log10()  +
+  scale_x_log10()  +
+  facet_grid(posneg~minute) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+```
+
+
+```{r warning = FALSE}
+ggplot(elmaven1 %>%
+         filter(label != "combined") %>%
+         arrange(medRt)) +
+  aes(AUC, maxQuality, col = medRt)+
+  geom_smooth(se = FALSE, method = "lm", col = "red", size = 2,
+              formula = "y ~ x") +
+  geom_point(size = 2, alpha = 0.25) +
+  scale_x_log10()  +
+  facet_grid(posneg~minute) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+```
+
+```{r warning = FALSE}
+ggplot(elmaven1 %>%
+         filter(label != "combined") %>%
+         arrange(desc(AUC))) +
+  aes(medRt, maxQuality, col = AUC)+
+  geom_smooth(se = FALSE, method = "lm", col = "red", size = 2,
+              formula = "y ~ x") +
+  geom_point(size = 2, alpha = 0.25) +
+  scale_x_log10()  +
+  facet_grid(posneg~minute) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+```
+
+\newpage
+
+### Combined vs Minute Measurements
+
+Six time points run together.
+Note that `parent` and `medMz` are identical in each dataset, but `medMz` and `medRt`
+vary for a compound across datasets.
+There may be two entries for some compounds.
+First look at those and then reduce to compounds with only one entry.
+
+```{r}
+elmaven1 %>%
+  filter(label == "combined") %>%
+  count(compound, posneg) %>%
+  count(posneg, n, name = "count")
+```
+
+```{r}
+elmaven1 %>%
+  filter(label != "combined") %>%
+  count(compound, posneg, minute) %>%
+  count(posneg, minute, n, name = "count") %>%
+  pivot_wider(names_from = "minute", values_from = "count")
+```
+
+```{r}
+elmaven1 %>%
+  filter(label == "combined") %>%
+  count(compound, posneg) %>%
+  filter(n > 1)
+```
+
+```{r}
+elmaven1 %>%
+  filter(label != "combined") %>%
+  count(compound, posneg, minute) %>%
+  filter(n > 1) %>%
+  pivot_wider(names_from = "minute", values_from = "n")
+```
+
+```{r}
+comb_dup <- (elmaven1 %>%
+  filter(label == "combined") %>%
+  count(compound, posneg) %>%
+  filter(n > 1))$compound
+min_dup <- (elmaven1 %>%
+  filter(label != "combined") %>%
+  count(compound, posneg, minute) %>%
+  filter(n > 1) %>%
+  pivot_wider(names_from = "minute", values_from = "n"))$compound
+all_dup <- unique(c(comb_dup, min_dup))
+```
+
+\newpage
+
+```{r}
+combined <- elmaven1 %>%
+  filter(label == "combined", !(compound %in% all_dup)) %>%
+  select(compound, posneg,
+         medMz, medRt,
+         maxQuality, expectedRtDiff, ppmDiff)
+```
+
+```{r}
+elmaven1_comb <- left_join(
+  elmaven1 %>%
+    filter(label != "combined", !(compound %in% all_dup)) %>%
+    select(compound, posneg, minute,
+           medMz, medRt,
+           maxQuality, expectedRtDiff, ppmDiff),
+  combined,
+  by = c("compound", "posneg"),
+  suffix = c("_min", "_comb"),
+  relationship = "many-to-one"
+)
+```
+
+```{r warning = FALSE}
+ggplot(elmaven1_comb %>% arrange(desc(maxQuality_comb))) +
+  aes(medRt_comb, medRt_min - medRt_comb, col = maxQuality_comb) +
+  geom_point(size = 2, alpha = 0.25) +
+  scale_x_log10()  +
+  facet_grid(posneg~minute) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+```
+
+```{r warning = FALSE}
+ggplot(elmaven1_comb %>% arrange(desc(maxQuality_comb))) +
+  aes(medMz_comb, medMz_min - medMz_comb, col = maxQuality_comb) +
+  geom_point(size = 2, alpha = 0.25) +
+  scale_x_log10()  +
+  facet_grid(posneg~minute) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+```
+
+```{r warning = FALSE}
+ggplot(elmaven1_comb) +
+  aes(maxQuality_comb, maxQuality_min - maxQuality_comb) +
+  geom_point(size = 2, alpha = 0.25) +
+  facet_grid(posneg~minute) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+```
+
+\newpage
+
+## Two peaks possible
+
+```{r}
+dir("data/data2")
+```
+
+```{r message = FALSE}
+elmaven <- dir("data/data2") %>%
+  set_names() %>%
+  map(function(x) {
+    out <- read_csv(file.path("data/data2", x))
+    runs <- grep("run", names(out))
+    if(length(runs) == 1) {
+      out$label <- last(names(out))
+      out$AUC <- out[[runs]]
+      out$combined <- FALSE
+    } else {
+      out$label <- last(names(out))
+      out$AUC <- NA
+      out$combined <- TRUE
+    }
+    out[-runs]  
+    }) %>%
+  bind_rows() %>%
+  mutate(
+    minute = 
+      as.numeric(str_replace(label, "run.*_([0-9]+)min.*", "\\1")),
+    posneg = ifelse(grepl("_HC_", label), "HC", "RP"),
+    mouse = str_remove(str_remove(label, "_20.*$"), "^.*_"),
+    label = ifelse(combined, "combined", label)) %>%
+  select(-combined)
+```
+
+```{r warning = FALSE}
+ggplot(elmaven %>%
+         filter(label != "combined") %>%
+         arrange(ppmDiff)) +
+  aes(AUC, expectedRtDiff, col = ppmDiff)+
+  geom_smooth(se = FALSE, method = "lm", col = "red", size = 2,
+              formula = "y ~ x") +
+  geom_point(size = 2, alpha = 0.25) +
+  scale_y_sqrt() +
+  scale_x_log10() +
+  facet_grid(posneg~minute) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+```
+
+```{r warning = FALSE}
+ggplot(elmaven %>%
+         filter(label != "combined") %>%
+         arrange(ppmDiff)) +
+  aes(AUC, medRt + expectedRtDiff, col = ppmDiff)+
+  geom_smooth(se = FALSE, method = "lm", col = "red", size = 2,
+              formula = "y ~ x") +
+  geom_point(size = 2, alpha = 0.25) +
+  scale_y_log10() +
+  scale_x_log10() +
+  facet_grid(posneg~minute) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+```
+
+```{r warning = FALSE}
+ggplot(elmaven %>%
+         filter(label != "combined") %>%
+         arrange(expectedRtDiff)) +
+  aes(AUC, ppmDiff, col = expectedRtDiff)+
+  geom_smooth(se = FALSE, method = "lm", col = "red", size = 2,
+              formula = "y ~ x") +
+  geom_point(size = 2, alpha = 0.25) +
+  scale_x_log10() +
+  facet_grid(posneg~minute)  +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+```
+
+
+```{r warning = FALSE}
+ggplot(elmaven %>%
+         filter(label != "combined") %>%
+         arrange(expectedRtDiff)) +
+  aes(AUC, medMz+ ppmDiff, col = expectedRtDiff)+
+  geom_smooth(se = FALSE, method = "lm", col = "red", size = 2,
+              formula = "y ~ x") +
+  geom_point(size = 2, alpha = 0.25) +
+  scale_y_log10()  +
+  scale_x_log10() +
+  facet_grid(posneg~minute)  +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+```
+
+```{r warning = FALSE}
+ggplot(elmaven %>%
+         filter(label != "combined") %>%
+         arrange(desc(maxQuality))) +
+  aes(AUC, medMz+ ppmDiff, col = maxQuality)+
+  geom_smooth(se = FALSE, method = "lm", col = "red", size = 2,
+              formula = "y ~ x") +
+  geom_point(size = 2, alpha = 0.25) +
+  scale_y_log10()  +
+  scale_x_log10()  +
+  facet_grid(posneg~minute) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+```
+
+
+```{r warning = FALSE}
+ggplot(elmaven %>%
+         filter(label != "combined") %>%
+         arrange(medRt)) +
+  aes(AUC, maxQuality, col = medRt)+
+  geom_smooth(se = FALSE, method = "lm", col = "red", size = 2,
+              formula = "y ~ x") +
+  geom_point(size = 2, alpha = 0.25) +
+  scale_x_log10()  +
+  facet_grid(posneg~minute) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+```
+
+```{r warning = FALSE}
+ggplot(elmaven %>%
+         filter(label != "combined") %>%
+         arrange(desc(AUC))) +
+  aes(medRt, maxQuality, col = AUC)+
+  geom_smooth(se = FALSE, method = "lm", col = "red", size = 2,
+              formula = "y ~ x") +
+  geom_point(size = 2, alpha = 0.25) +
+  scale_x_log10()  +
+  facet_grid(posneg~minute) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+```
+
+\newpage
+
+### Combined vs Minute Measurements
+
+Six time points run together.
+Note that `parent` and `medMz` are identical in each dataset, but `medMz` and `medRt`
+vary for a compound across datasets.
+There may be two entries for some compounds.
+First look at those and then reduce to compounds with only one entry.
+
+```{r}
+elmaven %>%
+  filter(label == "combined") %>%
+  count(compound, posneg) %>%
+  count(posneg, n, name = "count")
+```
+
+```{r}
+elmaven %>%
+  filter(label != "combined") %>%
+  count(compound, posneg, minute) %>%
+  count(posneg, minute, n, name = "count") %>%
+  pivot_wider(names_from = "minute", values_from = "count")
+```
+
+```{r}
+elmaven %>%
+  filter(label == "combined") %>%
+  count(compound, posneg) %>%
+  filter(n > 1)
+```
+
+```{r}
+elmaven %>%
+  filter(label != "combined") %>%
+  count(compound, posneg, minute) %>%
+  filter(n > 1) %>%
+  pivot_wider(names_from = "minute", values_from = "n")
+```
+
+```{r}
+comb_dup <- (elmaven %>%
+  filter(label == "combined") %>%
+  count(compound, posneg) %>%
+  filter(n > 1))$compound
+min_dup <- (elmaven %>%
+  filter(label != "combined") %>%
+  count(compound, posneg, minute) %>%
+  filter(n > 1) %>%
+  pivot_wider(names_from = "minute", values_from = "n"))$compound
+all_dup <- unique(c(comb_dup, min_dup))
+```
+
+\newpage
+
+```{r}
+combined <- elmaven %>%
+  filter(label == "combined", !(compound %in% all_dup)) %>%
+  select(compound, posneg,
+         medMz, medRt,
+         maxQuality, expectedRtDiff, ppmDiff)
+```
+
+```{r}
+elmaven_comb <- left_join(
+  elmaven %>%
+    filter(label != "combined", !(compound %in% all_dup)) %>%
+    select(compound, posneg, minute,
+           medMz, medRt,
+           maxQuality, expectedRtDiff, ppmDiff),
+  combined,
+  by = c("compound", "posneg"),
+  suffix = c("_min", "_comb"),
+  relationship = "many-to-one"
+)
+```
+
+```{r warning = FALSE}
+ggplot(elmaven_comb %>% arrange(desc(maxQuality_comb))) +
+  aes(medRt_comb, medRt_min - medRt_comb, col = maxQuality_comb) +
+  geom_point(size = 2, alpha = 0.25) +
+  scale_x_log10()  +
+  facet_grid(posneg~minute) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+```
+
+```{r warning = FALSE}
+ggplot(elmaven_comb %>% arrange(desc(maxQuality_comb))) +
+  aes(medMz_comb, medMz_min - medMz_comb, col = maxQuality_comb) +
+  geom_point(size = 2, alpha = 0.25) +
+  scale_x_log10()  +
+  facet_grid(posneg~minute) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+```
+
+```{r warning = FALSE}
+ggplot(elmaven_comb) +
+  aes(maxQuality_comb, maxQuality_min - maxQuality_comb) +
+  geom_point(size = 2, alpha = 0.25) +
+  facet_grid(posneg~minute) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+```
+
+\newpage
+
+```{r}
+knitr::knit_exit()
+```
+
+Interactive version
+
+```{r}
+plotly::ggplotly(
+ggplot(elmaven %>%
+         filter(label != "combined") %>%
+         arrange(ppmDiff)) +
+  aes(AUC, expectedRtDiff, col = ppmDiff, compound = compound)+
+  geom_point(size = 2, alpha = 0.25) +
+  scale_y_sqrt() +
+  scale_x_log10() +
+  facet_grid(posneg~minute) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+)
+```
+
