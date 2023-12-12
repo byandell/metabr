@@ -9,8 +9,12 @@ Authors@R: c(person("Brian S Yandell",
 Depends:
     R (>= 3.5.0)
 Imports:
-    dplyr, tidyr, purrr, tibble
+    dplyr, knitr, readr, purrr, stringr, tibble, tidyr
+Suggests:
+    EnrichmentBrowser, OmnipathR
 LazyData: true
 License: GPL-3
 Encoding: UTF-8
 RoxygenNote: 7.2.3
+URL: https://github.com/byandell/metabr
+BugReports: https://github.com/byandell/metabr/issues

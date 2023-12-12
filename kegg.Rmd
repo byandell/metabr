@@ -9,6 +9,8 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+**This is experimental and incomplete. Likely not the desired approach.**
+
 ```{r eval = FALSE}
 if (!require("BiocManager", quietly = TRUE))
   install.packages("BiocManager")
