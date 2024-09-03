@@ -24,7 +24,7 @@ library(stringr)
 
 How do we find indicator of quality.
 
-https://elmaven.readthedocs.io/en/documentation-website/IntroductiontoElMAVENUI.html#peak-table
+<https://elmaven.readthedocs.io/en/documentation-website/IntroductiontoElMAVENUI.html#peak-table>
 
 ## One peak only
 

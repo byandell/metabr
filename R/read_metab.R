@@ -1,3 +1,14 @@
+#' Title
+#'
+#' @param dirname name of directory
+#'
+#' @return data frame
+#' @export
+#' @importFrom dplyr bind_rows mutate select
+#' @importFrom purrr map set_names
+#' @importFrom readr read_csv
+#' @importFrom stringr str_remove str_replace
+#'
 read_metab_minute <- function(dirname) {
   elmaven1 <- 
     dplyr::select(
@@ -6,7 +17,7 @@ read_metab_minute <- function(dirname) {
         dplyr::bind_rows(
           # Process each file in `dirname` into data frame.
           purrr::map(
-            purrr::set_names(dir(dirname))
+            purrr::set_names(dir(dirname)),
             function(x) {
               out <- readr::read_csv(file.path(dirname, x))
               # Identify files that are `combined` runs.
@@ -31,7 +42,7 @@ read_metab_minute <- function(dirname) {
         posneg = ifelse(grepl("_HC_", .data$label), "HC", "RP"),
         mouse = stringr::str_remove(stringr::str_remove(.data$label, "_20.*$"), "^.*_"),
         # Change `label` for combined dataset.
-        label = ifelse(combined, "combined", .data$label)),
+        label = ifelse(.data$combined, "combined", .data$label)),
       # De-select `combinded` column.
       -combined)
 }

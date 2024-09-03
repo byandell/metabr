@@ -10,4 +10,4 @@ data/
 *.txt
 *.Rproj
 *.gz
-inst/doc
+inst/
