@@ -37,10 +37,21 @@ calc_cf <- function(rawobject, exclude_first = FALSE) {
   # This works as well for targeted curation where there is only one `medRt`.
 
   rawobject <- rawobject |>
-    dplyr::filter(stringr::str_detect(.data$sample, "_QC_")) |>
-    # Exclude first QC value if desired (RP_pos data).
-    dplyr::mutate(value = ifelse(dplyr::row_number() == 1 & exclude_first,
-                                 NA, value))
+    dplyr::filter(stringr::str_detect(.data$sample, "_QC_"))
+  
+  # Exclude first QC value if desired (RP_pos data).
+  if(exclude_first) {
+    if(all(c("Batch","Plate") %in% names(rawobject))) {
+      rawobject <- rawobject |>
+        dplyr::group_by(.data$Batch, .data$Plate, .data$compound, .data$medRt)
+    } else {
+      rawobject <- rawobject |>
+        dplyr::group_by(.data$rundate, .data$compound, .data$medRt)
+    }
+    rawobject <- rawobject |>
+      dplyr::slice(-1) |>
+      dplyr::ungroup()
+  }
 
   # Pick up QC runs of every plate.
   if(all(c("Batch","Plate") %in% names(rawobject))) {
@@ -80,6 +91,7 @@ calc_cf <- function(rawobject, exclude_first = FALSE) {
 #' Missing values might be `NA` or `0` values.
 #' 
 #' @param object object from `calc_cf()`
+#' @param drop_fewer drop compounds with fewer than all QC entries
 #' 
 #' @rdname qc_steps
 #' @export
@@ -87,18 +99,26 @@ calc_cf <- function(rawobject, exclude_first = FALSE) {
 #'             summarize ungroup
 #' @importFrom rlang .data
 #' 
-replace_missing_ave_cf <- function(qcobject) {
+replace_missing_ave_cf <- function(qcobject, drop_fewer = TRUE) {
   qc_date <- qcobject |>
     # Filter out `NA` and `0` values.
     dplyr::filter(!is.na(.data$value), .data$value != 0)
+  # This includes compounds with some but not all values.
+  # Drop any compound not in all Batch, Plate combos.
+  if(drop_fewer) {
+    fewer <- (dplyr::count(qc_date,compound) |> 
+                dplyr::filter(n < max(n)))$compound
+    qc_date <- qc_date |>
+      dplyr::filter(!(compound %in% fewer))
+  }
   if(all(c("Batch","Plate") %in% names(qc_date))) {
     qc_date <- qc_date |>
-      dplyr::group_by(.data$Batch, .data$Plate, .data$medRt)
-    bys <- c("Batch", "Plate", "medRt")
+      dplyr::group_by(.data$Batch, .data$Plate)
+    bys <- c("Batch", "Plate")
   } else {
     qc_date <- qc_date |>
-      dplyr::group_by(.data$rundate, .data$medRt)
-    bys <- c("rundate", "medRt")
+      dplyr::group_by(.data$rundate)
+    bys <- c("rundate")
   }
   
   qc_date <- qc_date |>
@@ -108,7 +128,7 @@ replace_missing_ave_cf <- function(qcobject) {
   # Bads are any compounds with missing `value` or `value` = 0.
   bads <- (qcobject |>
     dplyr::filter(is.na(value) | value == 0) |>
-    dplyr::count(compound, medRt))$compound
+    dplyr::count(compound))$compound
 
   # Join `rundata` averages to QC.
   dplyr::left_join(qcobject, qc_date, by = bys, suffix = c("", "_ave")) |>

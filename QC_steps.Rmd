@@ -62,7 +62,7 @@ hand_HCneg |> dplyr::select(mouse_id,sample,rundate,Batch,Plate) |>
 ```
 
 ```{r}
-(runBatchPlate <- hand_HCneg |>
+(BatchPlate_HCneg <- hand_HCneg |>
    dplyr::distinct(rundate, Batch, Plate) |>
    tidyr::unite(Batch_Plate, Batch, Plate, remove = FALSE))
 ```
@@ -71,12 +71,12 @@ hand_HCneg |> dplyr::select(mouse_id,sample,rundate,Batch,Plate) |>
 
 1. Transpose Data and Extract Info from Sample Names
 
-Note addition of `runBatchPlate` as QC is by `Plate` and `Batch`, not `rundate`.
+Note addition of `BatchPlate_HCneg` as QC is by `Plate` and `Batch`, not `rundate`.
 
 ```{r}
 raw_HCneg <- read_raw_metab(dirpath,
   "Founder_Plasma_All_Timepoints_HC_Neg_targeted_Raw.csv",
-  Batch_Plate = runBatchPlate)
+  Batch_Plate = BatchPlate_HCneg)
 ```
 
 2. Only pick up QC runs of every plate, and calculate correction factors (CF) for each metabolite.
@@ -103,7 +103,7 @@ Now redo as one step:
 ```{r}
 rescale_HCneg <- qc_steps(dirpath,
   "Founder_Plasma_All_Timepoints_HC_Neg_targeted_Raw.csv",
-  FALSE, runBatchPlate)
+  FALSE, BatchPlate_HCneg)
 ```
 
 Verify that CSV and first sheet of XLS are the same raw data.
@@ -111,7 +111,7 @@ Verify that CSV and first sheet of XLS are the same raw data.
 ```{r}
 rescale_HCnegx <- qc_steps(handpath,
   "Founder_Plasma_HC_Neg_Targeted_Batch_Corrected_Data.xlsx",
-  FALSE, runBatchPlate)
+  FALSE, BatchPlate_HCneg)
 ```
 
 ```{r}
@@ -142,6 +142,8 @@ rescale_HCneg |> dplyr::select(mouse_id,sample,rundate) |>
 
 #### Examine QC data
 
+##### HCneg
+
 2. Only pick up QC runs of every plate, and calculate correction factors (CF) for each metabolite.
     + Average of QC per plate/Average of QC all plate.
 
@@ -156,7 +158,8 @@ qc_HCneg <- replace_missing_ave_cf(qc_HCneg)
 ```
 
 ```{r}
-qc_HCneg |> dplyr::count(rundate)
+qc_HCneg |> dplyr::count(Batch,Plate) |>
+  tidyr::pivot_wider(names_from = "Plate", values_from = "n")
 ```
 
 Pull CF calculations from spreadsheet
@@ -167,7 +170,7 @@ readxl::excel_sheets(file.path(handpath,
 ```
 
 ```{r}
-qc_calc <- readxl::read_excel(file.path(handpath,
+qc_hand <- readxl::read_excel(file.path(handpath,
   "Founder_Plasma_HC_Neg_Targeted_Batch_Corrected_Data.xlsx"),
   sheet = 3, skip = 130, n_max = 14) |>
   dplyr::rename(Batch_Plate = "...1") |>
@@ -181,44 +184,95 @@ qc_calc <- readxl::read_excel(file.path(handpath,
 ```
 
 ```{r}
-m <- match(unique(qc_calc$Batch_Plate), unique(runBatchPlate$Batch_Plate))
+any(is.na(match(unique(qc_hand$Batch_Plate), unique(BatchPlate_HCneg$Batch_Plate))))
+```
+
+```{r}
+qc_comp <- dplyr::full_join(qc_HCneg, qc_hand, by = c("Batch","Plate","compound"),
+                 suffix = c("_algo", "_hand")) |>
+  dplyr::mutate(ratio = value_hand / value_algo) |>
+  dplyr::select(Batch, Plate, ratio, value_hand, value_algo, compound)
+summary(qc_comp$ratio)
+```
+
+##### RPpos
+
+```{r}
+(BatchPlate_RPpos <- hand_RPpos |>
+   dplyr::distinct(rundate, Batch, Plate) |>
+   tidyr::unite(Batch_Plate, Batch, Plate, remove = FALSE))
+```
+
+```{r}
+raw_RPpos <- read_raw_metab(dirpath,
+  "Founder_Plasma_All_Timepoints_RP_Pos_targeted_Raw.csv",
+  Batch_Plate = BatchPlate_RPpos)
+```
+
+2. Only pick up QC runs of every plate, and calculate correction factors (CF) for each metabolite.
+    + Average of QC per plate/Average of QC all plate.
+
+```{r}
+qc_RPpos <- calc_cf(raw_RPpos, exclude_first = TRUE)
+```
+
+3. If metabolites weren’t measured in (**all?**) QC samples, but were measured in study samples: use the CF average of all metabolites in one plate as the CF of the missing metabolites on that plate.
+
+```{r}
+qc_RPpos <- replace_missing_ave_cf(qc_RPpos)
+```
+
+```{r}
+qc_RPpos |> dplyr::count(Batch,Plate) |>
+  tidyr::pivot_wider(names_from = "Plate", values_from = "n")
+```
+
+Pull CF calculations from spreadsheet
+
+```{r}
+readxl::excel_sheets(file.path(handpath,
+  "Founder_Plasma_RP_Pos_Targeted_Batch_Corrected_Data.xlsx"))
+```
+
+```{r}
+qc_hand <- readxl::read_excel(file.path(handpath,
+  "Founder_Plasma_RP_pos_Targeted_Batch_Corrected_Data.xlsx"),
+  sheet = 3, skip = 128, n_max = 14) |>
+  dplyr::rename(Batch_Plate = "...1") |>
+  dplyr::select(-2) |> # blank column added
+  dplyr::filter(!is.na(Batch_Plate)) |>
+  tidyr::pivot_longer(-Batch_Plate, names_to = "compound", values_to = "value") |>
+  dplyr::mutate(Batch_Plate =
+    stringr::str_replace(Batch_Plate, "Batch([0-9])_Plate([0-9])", "\\1_\\2")) |>
+  tidyr::separate_wider_delim(Batch_Plate, "_", names = c("Batch", "Plate"),
+                              cols_remove = FALSE) |>
+  dplyr::filter(!stringr::str_detect(compound, "Average"))
+```
+
+```{r}
+any(is.na(match(unique(qc_hand$Batch_Plate), unique(BatchPlate_HCneg$Batch_Plate))))
+```
+
+```{r}
+qc_comp <- dplyr::full_join(qc_RPpos, qc_hand, by = c("Batch","Plate","compound"),
+                 suffix = c("_algo", "_hand")) |>
+  dplyr::mutate(ratio = value_hand / value_algo) |>
+  dplyr::select(Batch, Plate, ratio, value_hand, value_algo, compound)
+summary(qc_comp$ratio)
 ```
 
 #### Compare hand and automated Batch Correction
 
 ```{r}
-out <- hand_auto(hand_HCneg, rescale_HCneg)
+summary(hand_auto(hand_HCneg, rescale_HCneg)$ratio)
 ```
 
 ```{r}
-plot(out |> dplyr::filter(abs(1 - ratio) > 1e-1,
-                          !(Plate == "7" & Batch == "1"))) +
-  ggplot2::ggtitle("All but Batch 1, Plate 7")
+summary((out <- hand_auto(hand_RPpos, rescale_RPpos))$ratio)
 ```
 
 ```{r}
-plot(out |> dplyr::filter(abs(1 - ratio) > 1e-1,
-                          (Plate == "7" & Batch == "1"))) +
-  ggplot2::ggtitle("Only Batch 1, Plate 7")
-```
-
-```{r}
-out |>
-  dplyr::filter(abs(1 - ratio) > 1e-1) |>
-  dplyr::count(Batch, Plate)
-```
-
-```{r}
-out |>
-  dplyr::filter(abs(1 - ratio) > 1e-1) |>
-  dplyr::select(mouse_id, Batch, Plate, ratio)
-```
-
-```{r}
-out |>
-  dplyr::filter(abs(1 - ratio) > 1e-1) |>
-  dplyr::count(mouse_id) |>
-  dplyr::arrange(dplyr::desc(n))
+plot(out)
 ```
 
 ```{r}
