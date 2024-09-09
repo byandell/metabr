@@ -311,10 +311,6 @@ out <- dplyr::full_join(
   dplyr::filter(value_hand > 3 * value_auto)
 ```
 
-```{r}
-
-```
-
 ### Notes for batch correction in `RP_Pos` mode 
  
 - For untargeted data, if any metabolite has peak area <1000 or correction factor is 0 in most QC samples, use average of CF of all metabolites as their CF no matter if they can be measured in QC samples or not.

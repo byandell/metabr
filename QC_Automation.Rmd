@@ -1,0 +1,104 @@
+---
+title: "QC_Automation"
+author: "Brian Yandell"
+date: "2024-09-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(metabr)
+```
+
+# QC steps and normalization (Batch Correction)
+
+Need to correct the two modes (`HC_Neg` and `RP_Pos`) separately.
+`HC_Neg` mode targeted data of founder samples used as example
+to showed how Qiushi did batch correction manually.
+See Batch_Correction_Procedure_RC2_Project.pdf
+(file `data/QC Batch Correction/Batch_Correction_Procedure_RC2_Project.pdf`)
+
+```{r}
+# Raw data in CSV
+dirpath <- 'data/QC Batch Correction/#Founder_Plasma_Raw_Data'
+# Raw and Corrected data in XLSX
+handpath <- 'data/QC Batch Correction/#Founder_Plasma_Batch_Corrected_Data'
+```
+
+## Read Hand-calculated Targeted Data
+
+These are as CSV files and as sheets of XLSX files.
+
+```{r warning=FALSE}
+hand_HCneg <- read_batch_metab(handpath,
+  "Founder_Plasma_HC_Neg_Targeted_Batch_Corrected_Data.xlsx")
+```
+
+```{r warning=FALSE}
+hand_RPpos <- read_batch_metab(handpath,
+  "Founder_Plasma_RP_Pos_Targeted_Batch_Corrected_Data.xlsx")
+```
+
+## Individual QC Steps
+
+Shown for `HC_Neg` data.
+For `RP_Pos` data, exclude every 1st QC run on plate as it
+historically was always an outlier.
+QC steps were verified against hand-calculations.
+See [QC_steps.Rmd](https://github.com/byandell/metabr/blob/master/QC_steps.Rmd)
+section titles `Examine QC data`.
+
+1. Transpose Data and Extract Info from Sample Names
+
+Note addition of `BatchPlate_HCneg` as QC is by `Plate` and `Batch`, not `rundate`.
+
+```{r}
+raw_HCneg <- read_raw_metab(dirpath,
+  "Founder_Plasma_All_Timepoints_HC_Neg_targeted_Raw.csv",
+  Batch_Plate = BatchPlate_HCneg)
+```
+
+2. Only pick up QC runs of every plate, and calculate correction factors (CF) for each metabolite.
+    + Average of QC per plate/Average of QC all plate.
+
+```{r}
+qc_HCneg <- calc_cf(raw_HCneg)
+```
+
+3. If metabolites weren’t measured in (**all?**) QC samples, but were measured in study samples: use the CF average of all metabolites in one plate as the CF of the missing metabolites on that plate.
+
+```{r}
+qc_HCneg <- replace_missing_ave_cf(qc_HCneg)
+```
+
+4. Correct the Peak Area using CF for each metabolite 
+
+```{r}
+rescale_HCneg <- correct_raw_cf(raw_HCneg, qc_HCneg)
+```
+
+## Combine QC Steps Into One Routine.
+
+```{r}
+rescale_HCneg <- qc_steps(dirpath,
+  "Founder_Plasma_HC_Neg_Targeted_Batch_Corrected_Data.xlsx",
+  FALSE, BatchPlate_HCneg)
+```
+
+```{r}
+rescale_RPpos <- qc_steps(dirpath,
+                          "Founder_Plasma_All_Timepoints_RP_Pos_targeted_Raw.csv",
+                          exclude_first = TRUE)
+```
+
+# Untargeted Data
+
+Still to do.
+
