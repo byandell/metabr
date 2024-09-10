@@ -1,4 +1,4 @@
-# README
+# README for [metabr](https://github.com/byandell/metabr) Package
 
 QC Automation is automated for targeted data
 [QC_Automation.Rmd](https://github.com/byandell/metabr/blob/master/QC_Automation.Rmd).
