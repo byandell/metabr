@@ -45,5 +45,10 @@ read_batch_metab <- function(dirpath, filename, sheet = 4) {
       mouse_id = stringr::str_remove(
         stringr::str_remove(.data$sample, "^run[0-9]+-[0-9A-Za-z]+_"), "_.*$"),
       Batch = as.character(.data$Batch),
-      Plate = as.character(.data$Plate))
+      Plate = as.character(.data$Plate)) |>
+    # Parse Time and Rep
+    dplyr::mutate(
+      out,
+      time = stringr::str_replace(sample, "^.*_([0-9]+min)_.*$", "\\1"),
+      rep = stringr::str_replace(sample, "^.*_[0-9]+min_([0-9]+)_.*$", "\\1"))
 }

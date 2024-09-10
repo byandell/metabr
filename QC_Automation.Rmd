@@ -46,6 +46,18 @@ hand_RPpos <- read_batch_metab(handpath,
   "Founder_Plasma_RP_Pos_Targeted_Batch_Corrected_Data.xlsx")
 ```
 
+```{r}
+BatchPlate_HCneg <- hand_HCneg |>
+   dplyr::distinct(rundate, Batch, Plate) |>
+   tidyr::unite(Batch_Plate, Batch, Plate, remove = FALSE)
+```
+
+```{r}
+BatchPlate_RPpos <- hand_RPpos |>
+   dplyr::distinct(rundate, Batch, Plate) |>
+   tidyr::unite(Batch_Plate, Batch, Plate, remove = FALSE)
+```
+
 ## Individual QC Steps
 
 Shown for `HC_Neg` data.
@@ -87,18 +99,61 @@ rescale_HCneg <- correct_raw_cf(raw_HCneg, qc_HCneg)
 ## Combine QC Steps Into One Routine.
 
 ```{r}
-rescale_HCneg <- qc_steps(dirpath,
+rescale_HCneg <- qc_steps(handpath,
   "Founder_Plasma_HC_Neg_Targeted_Batch_Corrected_Data.xlsx",
   FALSE, BatchPlate_HCneg)
 ```
 
 ```{r}
-rescale_RPpos <- qc_steps(dirpath,
-                          "Founder_Plasma_All_Timepoints_RP_Pos_targeted_Raw.csv",
-                          exclude_first = TRUE)
+rescale_RPpos <- qc_steps(handpath,
+  "Founder_Plasma_RP_Pos_targeted_Batch_Corrected_Data.xlsx",
+  TRUE, BatchPlate_RPpos)
 ```
 
 # Untargeted Data
 
-Still to do.
+```{r}
+rescale_HCnegU <- qc_steps(handpath,
+  "Founder_Plasma_HC_Neg_untargeted_All_Batch_Corrected_Data.xlsx",
+  FALSE, BatchPlate_HCneg)
+```
+
+```{r}
+rescale_RPposU <- qc_steps(handpath,
+  "Founder_Plasma_RP_pos_untargeted_All_Batch_Corrected_Data.xlsx",
+  TRUE, BatchPlate_RPpos)
+```
+
+# Write Out Files
+
+```{r}
+wrpath <- "data/Automated"
+if(!dir.exists(wrpath)) dir.create(wrpath)
+write_metab(rescale_HCneg,
+            file.path(wrpath, "HC_Neg_Targeted.csv"))
+write_metab(rescale_HCnegU,
+            file.path(wrpath, "HC_Neg_Untargeted.csv"), FALSE)
+write_metab(rescale_RPpos,
+            file.path(wrpath, "RP_Pos_Targeted.csv"))
+write_metab(rescale_RPposU, 
+            file.path(wrpath, "RP_Pos_Untargeted.csv"), FALSE)
+```
+
+```{r}
+HCneg_Tar <- rescale_HCneg |>
+  dplyr::select(
+  sample, run, rundate, Batch, Plate, mouse_id, time, rep, compound, value) |>
+  tidyr::pivot_wider(id_cols = sample:rep,
+    names_from = "compound", values_from = "value")
+```
+
+```{r}
+HCneg_UnTar <- rescale_HCnegU |>
+  dplyr::select(
+  sample, run, rundate, Batch, Plate, mouse_id, time, rep, compound, medRt, value) |>
+  dplyr::mutate(medRt = round(medRt, 3)) |>
+  tidyr::unite(compound, compound, medRt) |>
+  tidyr::pivot_wider(id_cols = sample:rep,
+    names_from = "compound", values_from = "value")
+```
 

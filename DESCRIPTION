@@ -1,6 +1,6 @@
 Package: metabr
-Version: 0.2.0
-Date: 2024-09-03
+Version: 0.2.2
+Date: 2024-09-10
 Title: Metabolite Data Processing
 Description: Metabolite Data Input, Visualization and Analysis.
 Authors@R: c(person("Brian S Yandell",
@@ -9,7 +9,7 @@ Authors@R: c(person("Brian S Yandell",
 Depends:
     R (>= 3.5.0)
 Imports:
-    dplyr, ggplot2, knitr, readr, purrr, stringr, tibble, tidyr
+    dplyr, ggplot2, knitr, readr, purrr, stringr, tibble, tidyr, utils
 Suggests:
     EnrichmentBrowser, OmnipathR
 License: GPL-3

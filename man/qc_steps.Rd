@@ -14,7 +14,7 @@ qc_steps(dirpath, filename, exclude_first = FALSE, Batch_Plate = NULL)
 
 calc_cf(rawobject, exclude_first = FALSE)
 
-replace_missing_ave_cf(qcobject)
+replace_missing_ave_cf(qcobject, drop_fewer = TRUE)
 
 correct_raw_cf(rawobject, qcobject)
 
@@ -34,6 +34,8 @@ read_raw_metab(dirpath, filename, sheet = 1, skip = 0, Batch_Plate = NULL)
 \item{rawobject}{}
 
 \item{qcobject}{}
+
+\item{drop_fewer}{drop compounds with fewer than all QC entries}
 
 \item{sheet}{sheet number if excel type file}
 

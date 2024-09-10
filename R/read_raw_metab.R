@@ -49,5 +49,11 @@ read_raw_metab <- function(dirpath, filename, sheet = 1, skip = 0,
       by = "rundate")
   }
   
+  # Parse Time and Rep
+  out <- dplyr::mutate(
+    out,
+    time = stringr::str_replace(sample, "^.*_([0-9]+min)_.*$", "\\1"),
+    rep = stringr::str_replace(sample, "^.*_[0-9]+min_([0-9]+)_.*$", "\\1"))
+  
   out
 }
