@@ -9,6 +9,8 @@ identified by `medRt`.
 
 Data are written to CSV files with [write_metab.R](https://github.com/byandell/metabr/blob/master/R/write_metab.R).
 
+Data files came from [DropBox](https://www.dropbox.com/scl/fo/acam1ejhe7zlktmn9yh1k/ABddZPrl8wUGQskLQzGV0MA?rlkey=6ttor4u5jz7og9wu2d5mt079d&st=04rzua3e&dl=0).
+
 Not clear yet how this will generalize to DO data.
 
 Brian Yandell, 10 Sep 2024
