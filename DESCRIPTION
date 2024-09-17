@@ -1,6 +1,6 @@
 Package: metabr
-Version: 0.2.2
-Date: 2024-09-10
+Version: 0.2.3
+Date: 2024-09-17
 Title: Metabolite Data Processing
 Description: Metabolite Data Input, Visualization and Analysis.
 Authors@R: c(person("Brian S Yandell",

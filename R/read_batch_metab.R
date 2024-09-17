@@ -48,7 +48,6 @@ read_batch_metab <- function(dirpath, filename, sheet = 4) {
       Plate = as.character(.data$Plate)) |>
     # Parse Time and Rep
     dplyr::mutate(
-      out,
       time = stringr::str_replace(sample, "^.*_([0-9]+min)_.*$", "\\1"),
       rep = stringr::str_replace(sample, "^.*_[0-9]+min_([0-9]+)_.*$", "\\1"))
 }
