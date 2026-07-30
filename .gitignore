@@ -10,7 +10,6 @@ data/
 *.txt
 *.Rproj
 *.gz
-inst/
 
 # pkgdown site
 docs/
