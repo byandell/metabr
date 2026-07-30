@@ -1,3 +1,7 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
 data/
+^_pkgdown\.yml$
+^\.github$
+^DEVELOPER\.md$
+^docs$

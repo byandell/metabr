@@ -11,3 +11,6 @@ data/
 *.Rproj
 *.gz
 inst/
+
+# pkgdown site
+docs/

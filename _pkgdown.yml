@@ -1,0 +1,78 @@
+url: https://byandell-sysgen.github.io/metabr
+
+template:
+  bootstrap: 5
+  includes:
+    in_header: |
+      <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+      <style>
+        pre.mermaid {
+          background: transparent !important;
+          border: none !important;
+          box-shadow: none !important;
+          text-align: center;
+        }
+      </style>
+      <script>
+        document.addEventListener("DOMContentLoaded", function() {
+          document.querySelectorAll("pre.mermaid").forEach(function(el) {
+            var code = el.querySelector("code");
+            if (code) {
+              el.textContent = code.textContent;
+            }
+          });
+          mermaid.initialize({ startOnLoad: true });
+        });
+      </script>
+
+navbar:
+  structure:
+    left: [intro, reference, articles]
+    right: [github]
+  components:
+    articles:
+      text: Developer Guide
+      menu:
+        - text: "Developer Guide Overview & Architecture"
+          href: articles/devel_guide/index.html
+        - text: "QC Pipeline & Correction Methodology"
+          href: articles/devel_guide/qc_pipeline.html
+        - text: "Data Ingestion & IO Format Specifications"
+          href: articles/devel_guide/data_ingestion.html
+
+articles:
+  - title: "Developer Guides"
+    contents:
+      - "devel_guide/index"
+      - "devel_guide/qc_pipeline"
+      - "devel_guide/data_ingestion"
+
+reference:
+  - title: "Quality Control & Batch Correction Engine"
+    desc: "Core pipeline functions for batch-correcting raw LC-MS/El-MAVEN metabolite intensities using quality control samples"
+    contents:
+      - qc_steps
+      - calc_cf
+      - replace_missing_ave_cf
+      - correct_raw_cf
+
+  - title: "Data Ingestion & IO Parsers"
+    desc: "Functions for importing raw, batch-corrected, and minute-based metabolomics datasets"
+    contents:
+      - read_raw_metab
+      - read_batch_metab
+      - read_metab_minute
+      - write_metab
+
+  - title: "Normalization & Curation Comparison"
+    desc: "Transformation routines and curation discrepancy comparison"
+    contents:
+      - normalize
+      - hand_auto
+
+  - title: "Visualization & S3 Plotting"
+    desc: "S3 plotting methods for batch correction diagnostics"
+    contents:
+      - ggplot_hand_auto
+      - autoplot.hand_auto
+      - plot.hand_auto
