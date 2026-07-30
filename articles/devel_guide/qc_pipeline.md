@@ -1,0 +1,103 @@
+# QC Pipeline & Correction Methodology
+
+## QC Pipeline & Correction Methodology
+
+This document details the quality control (QC) batch-correction
+algorithm and curation discrepancy analysis implemented in **metabr**.
+
+------------------------------------------------------------------------
+
+### 1. Quality Control Correction Algorithm
+
+The core pipeline driver
+[`qc_steps()`](file:///Users/brianyandell/Documents/Research/byandell-sysgen/metabr/R/qc_steps.R#L10)
+executes a 4-stage batch correction process:
+
+``` mermaid
+flowchart LR
+    subgraph step1 [Stage 1: Raw Ingestion]
+        readRaw["read_raw_metab()"]
+    end
+
+    subgraph step2 [Stage 2: Calculate CF]
+        filterQC["Filter sample == '_QC_'"]
+        calcMean["Plate QC Mean & Global QC Mean"]
+        cfRatio["CF = Plate_QC_Mean / Global_QC_Mean"]
+        filterQC --> calcMean --> cfRatio
+    end
+
+    subgraph step3 [Stage 3: Fallback Imputation]
+        impute["replace_missing_ave_cf()"]
+    end
+
+    subgraph step4 [Stage 4: Intensity Scaling]
+        scale["correct_raw_cf() [value = raw_value / CF]"]
+    end
+
+    readRaw --> filterQC
+    cfRatio --> impute
+    impute --> scale
+
+    classDef stage fill:#ff7f0e,stroke:#333,stroke-width:2px,color:#fff
+    class readRaw,filterQC,calcMean,cfRatio,impute,scale stage
+```
+
+#### Mathematical Formulation
+
+1.  **Plate QC Average**:
+    ``` math
+    \text{Mean}_{\text{Plate}}(c, \text{medRt}, b, p) = \frac{1}{|\text{QC}_{b,p}|} \sum_{i \in \text{QC}_{b,p}} y_{i, c, \text{medRt}}
+    ```
+
+2.  **Global QC Average**:
+    ``` math
+    \text{Mean}_{\text{Global}}(c, \text{medRt}) = \frac{1}{|\text{QC}_{\text{total}}|} \sum_{i \in \text{QC}_{\text{total}}} y_{i, c, \text{medRt}}
+    ```
+
+3.  **Plate Correction Factor (CF)**:
+    ``` math
+    \text{CF}_{b, p, c, \text{medRt}} = \frac{\text{Mean}_{\text{Plate}}(c, \text{medRt}, b, p)}{\text{Mean}_{\text{Global}}(c, \text{medRt})}
+    ```
+
+4.  **Batch-Corrected Sample Intensity**:
+    ``` math
+    y_{\text{corrected}, i} = \frac{y_{\text{raw}, i}}{\text{CF}_{b, p, c, \text{medRt}}}
+    ```
+
+------------------------------------------------------------------------
+
+### 2. Retention Time (`medRt`) & Peak Curation
+
+For untargeted metabolomics, LC-MS platforms may output multiple
+chromatographic peaks per compound corresponding to different retention
+times.
+
+- **Untargeted Assays**: Grouping is performed across
+  `(compound, medRt)` pairs to ensure each peak is independently
+  corrected.
+- **Targeted Assays**: Grouping defaults to `compound` when `medRt` is
+  unique.
+
+------------------------------------------------------------------------
+
+### 3. Curation Discrepancy Analysis (`hand_auto`)
+
+To evaluate automated QC correction against manual expert curation,
+[`hand_auto()`](file:///Users/brianyandell/Documents/Research/byandell-sysgen/metabr/R/hand_auto.R#L13)
+calculates compound-wise ratios across samples:
+
+``` math
+\text{Ratio} = \frac{\text{Value}_{\text{hand}}}{\text{Value}_{\text{auto}}}
+```
+
+``` mermaid
+flowchart TD
+    handData["Manual Curation Data Frame"] --> handAutoFunc["hand_auto()"]
+    autoData["Automated Curation Data Frame"] --> handAutoFunc
+    handAutoFunc --> object["S3 Object of Class 'hand_auto'"]
+    object --> plotMethod["ggplot_hand_auto() / autoplot()"]
+```
+
+Visualizing the resulting ratio against automated value estimates
+($`\log_{10}`$ scale) per batch and plate allows rapid detection of
+systematic curation biases or outlier plates.
